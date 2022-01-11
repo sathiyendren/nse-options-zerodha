@@ -1,0 +1,30 @@
+<html>
+
+<head>
+  <title>NSE Options Zerodha Manager API Server</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+
+<body>
+  <h1>NSE Options Zerodha Manager</h1>
+  <p>Author: <a href="sathiyendren@gmail.com">@Sathiyendren R</a></p>
+  <div id="todaysDate"></div>
+  <script>
+    function doDate()
+  {
+      var str = "";
+  
+      var days = new Array("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday");
+      var months = new Array("January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December");
+  
+      var now = new Date();
+  
+      str += "Today is: " + days[now.getDay()] + ", " + now.getDate() + " " + months[now.getMonth()] + " " + now.getFullYear() + " " + now.getHours() +":" + now.getMinutes() + ":" + now.getSeconds();
+      document.getElementById("todaysDate").innerHTML = str;
+  }
+  
+  setInterval(doDate, 1000);
+  </script>
+</body>
+
+</html>
