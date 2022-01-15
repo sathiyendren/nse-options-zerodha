@@ -52,6 +52,10 @@ const getLastTransactionByUserTradeDateBuy = async (tradeDate, userId, type, str
   return Transaction.find({ tradeDate, userId, type, strikePrice, symbol }).sort({ createdAt: 'desc' }).limit(1);
 };
 
+const getLastTransactionByUserTradeDateTradeSymbolBuy = async (tradeDate, userId, tradeSymbol) => {
+  return Transaction.find({ tradeDate, userId, tradeSymbol }).sort({ createdAt: 'desc' }).limit(1);
+};
+
 const getLastTransactionByActiveUserTradeDateSell = async (active, tradeDate, userId, type, strikePrice, symbol) => {
   return Transaction.find({ active, tradeDate, userId, type, strikePrice, symbol }).sort({ createdAt: 'desc' }).limit(1);
 };
@@ -110,4 +114,5 @@ module.exports = {
   getTransactionsByUserTradeDatePreStart,
   getLastTransactionByUserTradeDateBuy,
   getLastTransactionByActiveUserTradeDateSell,
+  getLastTransactionByUserTradeDateTradeSymbolBuy,
 };

@@ -26,6 +26,10 @@ const transactionSchema = mongoose.Schema(
       enum: [symbolTypes.NIFTY, symbolTypes.BANKNIFTY],
       required: true,
     },
+    tradingSymbol: {
+      type: String,
+      required: true,
+    },
     tradeDate: {
       type: String,
       required: true,
@@ -80,19 +84,6 @@ const transactionSchema = mongoose.Schema(
   }
 );
 
-// transactionSchema.pre('save', function (next) {
-//   if (this.currentPrice && this.currentPrice > 0) {
-//     this.profit = (this.currentPrice - this.boughtPrice) * this.quantity;
-//   }
-
-//   if (this.soldPrice && this.soldPrice > 0) {
-//     this.active = false;
-//   } else {
-//     this.active = true;
-//   }
-//   next();
-// });
-
 // Add plugin that converts mongoose to json
 transactionSchema.plugin(toJSON);
 transactionSchema.plugin(paginate);
@@ -108,9 +99,10 @@ transactionSchema.statics.isTransactionTaken = async function ({
   type,
   expiryDate,
   symbol,
+  tradingSymbol,
   tradeDate,
 }) {
-  const transaction = await this.findOne({ userId, strikePrice, type, expiryDate, symbol, tradeDate });
+  const transaction = await this.findOne({ userId, strikePrice, type, expiryDate, symbol, tradingSymbol, tradeDate });
   return !!transaction;
 };
 

@@ -1,13 +1,18 @@
 const axios = require('axios');
 const logger = require('../config/logger');
 const { optionURLs } = require('../config/optionChain');
+const Zerodha = require('../brokers/zerodha/Zerodha');
 
 const getOptionChainData = (symbol) =>
   new Promise((resolve) => {
+    const apiKey = Zerodha.getAPIKey();
+    const session = Zerodha.getSession();
+    logger.info(`apiKey :: ${apiKey}`);
+    logger.info(`session :: ${session}`);
     const optionChainURL = `${optionURLs.OPTIONCHAIN}${symbol}`;
     logger.info(`optionChainURL :${optionChainURL}`);
     axios
-      .get(optionChainURL)
+      .get(optionChainURL, { headers: { Authorization: 'https://www.nseindia.com/option-chain' } })
       .then((response) => {
         const responseData = response.data;
         resolve(responseData);

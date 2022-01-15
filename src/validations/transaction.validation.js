@@ -9,6 +9,7 @@ const createTransaction = {
     type: Joi.string().required().valid(optionTypes.CE, optionTypes.PE),
     expiryDate: Joi.string().required(),
     symbol: Joi.string().required().valid(symbolTypes.NIFTY, symbolTypes.BANKNIFTY),
+    tradingSymbol: Joi.string().required(),
     tradeDate: Joi.string().required(),
     capital: Joi.number().required().default(0),
     quantity: Joi.number().required().default(0),

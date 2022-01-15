@@ -16,7 +16,7 @@ class ZerodhaOrderManager {
       exchange: orderDetails.exchange || 'NSE',
       tradingsymbol: orderDetails.tradingSymbol,
       transaction_type: orderDetails.isBuy ? 'BUY' : 'SELL',
-      quantity: parseInt(orderDetails.quantity, 10),
+      quantity: parseInt(orderDetails.quantity, 25),
       product,
       order_type: orderDetails.isMarketOrder ? 'MARKET' : 'NRML',
       validity: product === 'MIS' ? 'DAY' : 'IOC',

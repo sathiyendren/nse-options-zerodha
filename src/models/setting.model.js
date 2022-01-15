@@ -50,6 +50,26 @@ const settingSchema = mongoose.Schema(
       type: Number,
       required: true,
     },
+    zerodhaRequestToken: {
+      type: String,
+      required: false,
+    },
+    zerodhaApiKey: {
+      type: String,
+      required: false,
+    },
+    zerodhaApiSecret: {
+      type: String,
+      required: false,
+    },
+    zerodhaAccessToken: {
+      type: String,
+      required: false,
+    },
+    expiryDate: {
+      type: String,
+      required: true,
+    },
   },
   {
     timestamps: true,

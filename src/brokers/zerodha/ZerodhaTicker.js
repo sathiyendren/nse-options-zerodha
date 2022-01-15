@@ -2,13 +2,9 @@
   Author: Sreenivas Doosa
 */
 
-import _ from 'lodash';
-// eslint-disable-next-line import/no-unresolved
-// eslint-disable-next-line import/extensions
-import Instruments from './Instruments.js';
-
-// eslint-disable-next-line import/no-unresolved
+const _ = require('lodash');
 const { KiteTicker } = require('kiteconnect');
+const Instruments = require('./Instruments');
 const logger = require('../../config/logger');
 const Zerodha = require('./Zerodha');
 

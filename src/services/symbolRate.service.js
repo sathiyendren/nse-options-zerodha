@@ -129,9 +129,9 @@ const deleteAllSymbolRate = async () => {
  * @param {boolean} running
  * @returns {Promise<OptionScript>}
  */
-const updateSymbolCurrentPrice = async (symbol, running, optionChainData) => {
-  if (optionChainData && optionChainData.records) {
-    const niftyCurrentPrice = optionChainData.records.underlyingValue;
+const updateSymbolCurrentPrice = async (symbol, running, data) => {
+  if (data && data.last_price) {
+    const niftyCurrentPrice = data.last_price;
     if (niftyCurrentPrice) {
       const params = {
         symbol,

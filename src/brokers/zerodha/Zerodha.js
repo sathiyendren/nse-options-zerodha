@@ -2,12 +2,9 @@
   Author: Sreenivas Doosa
 */
 
-import _ from 'lodash';
-import { KiteConnect } from 'kiteconnect';
-
-// eslint-disable-next-line import/extensions
-import Instruments from './Instruments.js';
-
+const _ = require('lodash');
+const { KiteConnect } = require('kiteconnect');
+const Instruments = require('./Instruments');
 const { apiConfig } = require('../../config/zerodha');
 const logger = require('../../config/logger');
 // eslint-disable-next-line import/extensions
@@ -62,29 +59,40 @@ class Zerodha {
     return this.kiteConnect;
   }
 
-  login(req, res) {
-    const requestToken = _.get(req, 'query.request_token', null);
+  setAccessToken(accessToken) {
+    this.accessToken = accessToken;
+  }
 
-    if (_.isEmpty(requestToken) === false) {
-      logger.info('Login successful...');
-      // Now get the access token after successful login
-      this.kiteConnect
-        .generateSession(requestToken, this.getAPISecret())
-        .then((session) => {
-          this.setSession(session);
-          res.redirect(302, '/?broker=zerodha');
-        })
-        .catch((err) => {
-          logger.error('generateSession failed => ', err);
-          res.status(500).send({
-            error: 'Could not generate kite session',
-            details: err,
+  getAccessToken() {
+    return this.session && this.session.access_token ? this.session.access_token : this.accessToken;
+  }
+
+  login(requestToken) {
+    return new Promise((resolve) => {
+      if (_.isEmpty(requestToken) === false) {
+        // Now get the access token after successful login
+        this.kiteConnect
+          .generateSession(requestToken, this.getAPISecret())
+          .then((session) => {
+            logger.info('Login successful...');
+            this.setSession(session);
+            resolve({ success: true, accessToken: this.getAccessToken() });
+            // res.redirect(302, '/?broker=zerodha');
+          })
+          .catch((err) => {
+            logger.error('generateSession failed => ', err);
+            resolve({ success: false });
+            // res.status(500).send({
+            //   error: 'Could not generate kite session',
+            //   details: err,
+            // });
           });
-        });
-    } else {
-      logger.info(`login url => ${this.kiteConnect.getLoginURL()}`);
-      res.redirect(302, this.kiteConnect.getLoginURL());
-    }
+      } else {
+        logger.info(`login url => ${this.kiteConnect.getLoginURL()}`);
+        resolve({ success: false });
+        // res.redirect(302, this.kiteConnect.getLoginURL());
+      }
+    });
   }
 
   logout(req, res) {

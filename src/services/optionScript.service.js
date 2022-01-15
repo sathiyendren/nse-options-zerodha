@@ -8,8 +8,8 @@ const ApiError = require('../utils/ApiError');
  * @returns {Promise<OptionScript>}
  */
 const createOptionScript = async (optionScriptBody) => {
-  if (await OptionScript.isIdentifierTakenForUser(optionScriptBody.identifier, optionScriptBody.userId)) {
-    throw new ApiError(httpStatus.BAD_REQUEST, 'Identifier already taken');
+  if (await OptionScript.isTradingSymbolTakenForUser(optionScriptBody.tradingSymbol, optionScriptBody.userId)) {
+    throw new ApiError(httpStatus.BAD_REQUEST, 'TradingSymbol already taken');
   }
   return OptionScript.create(optionScriptBody);
 };
@@ -45,6 +45,7 @@ const getOptionScriptById = async (id) => {
 const getOptionScriptByUserId = async (userId) => {
   return OptionScript.find({ userId });
 };
+
 
 /**
  * Update optionScript by id

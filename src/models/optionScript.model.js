@@ -8,86 +8,59 @@ const optionScriptSchema = mongoose.Schema(
       type: String,
       required: true,
     },
-    type: {
+    instrument_token: {
+      type: String,
+      required: true,
+    },
+    exchange_token: {
+      type: String,
+      required: true,
+    },
+    tradingsymbol: {
+      type: String,
+      required: true,
+    },
+    name: {
+      type: String,
+      required: true,
+    },
+    last_price: {
+      type: Number,
+      required: true,
+    },
+    expiry: {
+      type: Date,
+      required: true,
+    },
+    strike: {
+      type: Number,
+      required: true,
+    },
+    tick_size: {
+      type: Number,
+      required: true,
+    },
+    lot_size: {
+      type: Number,
+      required: true,
+    },
+    instrument_type: {
       type: String,
       enum: [optionTypes.CE, optionTypes.PE],
       required: true,
     },
-    strikePrice: {
-      type: Number,
-      required: true,
-    },
-    expiryDate: {
+    segment: {
       type: String,
       required: true,
     },
-    underlying: {
+    exchange: {
       type: String,
       required: true,
     },
-    identifier: {
-      type: String,
+    auto: {
+      type: Boolean,
       required: true,
-    },
-    openInterest: {
-      type: Number,
-      required: true,
-    },
-    changeinOpenInterest: {
-      type: Number,
-      required: true,
-    },
-    pchangeinOpenInterest: {
-      type: Number,
-      required: true,
-    },
-    totalTradedVolume: {
-      type: Number,
-      required: true,
-    },
-    impliedVolatility: {
-      type: Number,
-      required: true,
-    },
-    lastPrice: {
-      type: Number,
-      required: true,
-    },
-    change: {
-      type: Number,
-      required: true,
-    },
-    pChange: {
-      type: Number,
-      required: true,
-    },
-    totalBuyQuantity: {
-      type: Number,
-      required: true,
-    },
-    totalSellQuantity: {
-      type: Number,
-      required: true,
-    },
-    bidQty: {
-      type: Number,
-      required: true,
-    },
-    bidprice: {
-      type: Number,
-      required: true,
-    },
-    askQty: {
-      type: Number,
-      required: true,
-    },
-    askPrice: {
-      type: Number,
-      required: true,
-    },
-    underlyingValue: {
-      type: Number,
-      required: true,
+      default: true,
     },
   },
   {
@@ -104,8 +77,8 @@ optionScriptSchema.plugin(paginate);
  * @param {string} identifier - The user's symbol
  * @returns {Promise<boolean>}
  */
-optionScriptSchema.statics.isIdentifierTaken = async function (identifier) {
-  const optionScript = await this.findOne({ identifier });
+optionScriptSchema.statics.isTradingSymbolTaken = async function (tradingSymbol) {
+  const optionScript = await this.findOne({ tradingSymbol });
   return !!optionScript;
 };
 
@@ -115,8 +88,8 @@ optionScriptSchema.statics.isIdentifierTaken = async function (identifier) {
  * @param {string} userId - The user's symbol
  * @returns {Promise<boolean>}
  */
-optionScriptSchema.statics.isIdentifierTakenForUser = async function (identifier, userId) {
-  const optionScript = await this.findOne({ identifier, userId });
+optionScriptSchema.statics.isTradingSymbolTakenForUser = async function (tradingSymbol, userId) {
+  const optionScript = await this.findOne({ tradingSymbol, userId });
   return !!optionScript;
 };
 

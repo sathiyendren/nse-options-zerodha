@@ -1,9 +1,11 @@
 const apiConfig = {
   user: 'BHT802',
-  requestToken: 'BT8kuyt0p4JAMyGMvACB8oHPpxVbO0Vq&checksum=4b3c559a6e2fbd5d4cadfe72ea1fb0efd83c6e19597e377807a4fef6f2e9eafc',
+  email: 'fake@example.com',
+  requestToken: '36ZWm3eKzP1ldGuOrLNwP3JY7nZqvhCy',
   apiKey: '2ge4dah4e4lncpqt',
   apiSecret: 'qipvevuzhygu7qa8qzop3qzkzxceaauo',
   redirectUrl: 'http://localhost:8080/apis/broker/login?broker=zerodha',
+  accessToken: 'qH1mxz7Kidk8RGGmzRDVE0pCXCoC2bFX',
   debug: true,
 };
 
@@ -22,7 +24,13 @@ const holidays = [
   '2022-10-26',
   '2022-11-08',
 ];
+
+const zerodhaURLs = {
+  ZERODHA_OHLC: 'https://api.kite.trade/quote/ohlc?',
+};
+
 module.exports = {
   apiConfig,
   holidays,
+  zerodhaURLs,
 };
