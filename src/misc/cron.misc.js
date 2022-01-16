@@ -195,10 +195,10 @@ const initBankNiftyOptionChain = () =>
     // Initialization
     if (_.isEqual(setting.tradingType, tradingTypes.NEAR_RANGE)) {
       logger.info(`Trading Type :: ${setting.tradingType}`);
-      if (!isMarketOpen()) {
+      if (isMarketOpen()) {
         // need to remove
         logger.info(`Market open!`);
-        if (!isTradeConfigurationOpen()) {
+        if (isTradeConfigurationOpen()) {
           // need to remove
           logger.info(`is Trade Configuration Open!`);
           miscService.getOptionChainData(symbolTypes.BANKNIFTY).then((nseOptionChainBankNiftyData) => {
@@ -236,7 +236,7 @@ const initBankNiftyOptionChain = () =>
       logger.info(`Trading Type :: ${setting.tradingType}`);
     }
 
-    if (!isMarketOpen()) {
+    if (isMarketOpen()) {
       // need to remove
       const optionScriptTradingSymbols = [];
       optionScriptService
@@ -319,7 +319,7 @@ const start3SecCronTasks = () => {
     logger.info('----------------------------------');
     getCurrentDateTime();
     logger.info('running a task every 3 seconds');
-    Promise.all([initBankNiftyOptionChain()]) // initNiftyOptionChain(), initBankNiftyOptionChain()
+    Promise.all([initNiftyOptionChain(), initBankNiftyOptionChain()]) // initNiftyOptionChain(), initBankNiftyOptionChain()
       .then(() => {
         // do something with the responses
         logger.info('OptionChain Executed for All users.');

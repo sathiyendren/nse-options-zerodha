@@ -205,6 +205,7 @@ const updateTransactionsforCheckAndBuy = (optionScript, symbolData, symbol) =>
         logger.info(`${symbol} --BUY profitDifference :: ${profitDifference}`);
         logger.info(`${symbol} --BUY firstBuyCusionCaptial :: ${firstBuyCusionCaptial}`);
         logger.info(`${symbol} --BUY reBuyPrice :: ${reBuyPrice}`);
+        logger.info(`${symbol} --BUY currentPrice :: ${currentPrice}`);
         logger.info('---');
         const isBuyCondition = lastTransaction.preStart
           ? profitDifference > firstBuyCusionCaptial
@@ -294,10 +295,11 @@ const updateTransactionsforCheckAndSell = (transaction, symbolData, symbol) =>
     };
     logger.info('---');
     logger.info(`${symbol} --SELL tradingSymbol :: ${tradingSymbol}`);
-    logger.info(`${symbol} -- SELL SLPrice :: ${SLPrice}`);
     logger.info(`${symbol} -- SELL profitLossDifference :: ${profitLossDifference}`);
     logger.info(`${symbol} -- SELL trailingSLCaptial :: ${trailingSLCaptial}`);
     logger.info(`${symbol} -- SELL profit :: ${profit}`);
+    logger.info(`${symbol} -- SELL SLPrice :: ${SLPrice}`);
+    logger.info(`${symbol} --BUY currentPrice :: ${currentPrice}`);
     logger.info('---');
     if (_.isEqual(setting.account, accountTypes.REAL)) {
       const tradingSymbolWithouthExchange = tradingSymbol.split(':')[1];
@@ -305,7 +307,7 @@ const updateTransactionsforCheckAndSell = (transaction, symbolData, symbol) =>
       const orderDetails = {
         exchange: 'NFO',
         tradingSymbol: tradingSymbolWithouthExchange,
-        isBuy: true,
+        isBuy: false,
         quantity,
         product: 'MIS',
         isMarketOrder: true,
@@ -380,7 +382,7 @@ const updateTransactionsforSellPrice = (transaction, symbolData) =>
       const orderDetails = {
         exchange: 'NFO',
         tradingSymbol: tradingSymbolWithouthExchange,
-        isBuy: true,
+        isBuy: false,
         quantity,
         product: 'MIS',
         isMarketOrder: true,
