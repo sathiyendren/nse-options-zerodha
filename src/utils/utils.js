@@ -127,7 +127,7 @@ const getTradeConfigurationStartTime = (date) => {
 
   date.setHours(9);
   date.setMinutes(15);
-  date.setSeconds(0);
+  date.setSeconds(1);
   date.setMilliseconds(0);
 
   return date;

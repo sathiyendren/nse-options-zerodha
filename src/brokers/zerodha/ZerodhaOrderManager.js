@@ -3,7 +3,7 @@
 */
 
 // eslint-disable-next-line import/extensions
-import Zerodha from './Zerodha.js';
+const Zerodha = require('./Zerodha');
 
 class ZerodhaOrderManager {
   constructor() {

@@ -29,7 +29,7 @@ const sessionHook = () => {
 const checkHealth = () =>
   new Promise((resolve) => {
     axios
-      .get('https://nse-options-facade.herokuapp.com/v1/misc/ping')
+      .get('http://localhost:3002/v1/misc/ping')
       .then((response) => {
         const responseData = response.data;
         resolve(true);
@@ -51,31 +51,133 @@ const herokuKeepAliveCall = async () => {
 
 const initNiftyOptionChain = () =>
   new Promise((resolve) => {
-    miscService.getOptionChainData(symbolTypes.NIFTY).then((nseOptionChainNiftyData) => {
-      // logger.info(`nseOptionChainNiftyData :${nseOptionChainNiftyData}`);
-      if (nseOptionChainNiftyData && nseOptionChainNiftyData.filtered && nseOptionChainNiftyData.filtered.data) {
-        symbolRateService.updateSymbolCurrentPrice(symbolTypes.NIFTY, true, nseOptionChainNiftyData);
-        const filteredOptionChainNiftyData = optionChainService.getFilterdOptionChainData(
-          nseOptionChainNiftyData.filtered.data
-        );
-        if (filteredOptionChainNiftyData) {
-          if (isCurrentTimeMatch(9, 20)) {
-            optionChainService.runPreStartForTodayScript(filteredOptionChainNiftyData, symbolTypes.NIFTY);
-          }
-          optionChainService.runBuyForTodayScript(filteredOptionChainNiftyData, symbolTypes.NIFTY);
-          optionChainService.runSellForTodayScript(filteredOptionChainNiftyData, symbolTypes.NIFTY);
-          if (isCurrentTimeMatch(3, 25)) {
-            optionChainService.runSellAllForTodayScript(filteredOptionChainNiftyData, symbolTypes.NIFTY);
-          }
-          // Initialization
-          if (isCurrentTimeMatch(9, 13)) {
-            expiryDateService.updateExpiryDatesForSymbol(symbolTypes.NIFTY, nseOptionChainNiftyData);
-            optionChainService.runNearRangeBuyForTodayScript(filteredOptionChainNiftyData, symbolTypes.NIFTY);
-          }
-        }
+    zerodhaService.getZerodhaData(['NSE:NIFTY+50']).then((zerodhaNiftyData) => {
+      if (zerodhaNiftyData && zerodhaNiftyData.data) {
+        const data = zerodhaNiftyData.data['NSE:NIFTY 50'];
+        logger.info(`NSE:NIFTY 50  Price :: ${data.last_price}`);
+        symbolRateService.updateSymbolCurrentPrice(symbolTypes.NIFTY, true, data);
       }
-      resolve({});
     });
+
+    const user = User.getUser();
+    const { setting } = user;
+    // Initialization
+    if (_.isEqual(setting.tradingType, tradingTypes.NEAR_RANGE)) {
+      logger.info(`Trading Type :: ${setting.tradingType}`);
+      if (isMarketOpen()) {
+        // need to remove
+        logger.info(`Market open!`);
+        if (isTradeConfigurationOpen()) {
+          // need to remove
+          logger.info(`is Trade Configuration Open!`);
+          miscService.getOptionChainData(symbolTypes.NIFTY).then((nseOptionChainBankNiftyData) => {
+            expiryDateService.updateExpiryDatesForSymbol(symbolTypes.NIFTY, nseOptionChainBankNiftyData);
+          });
+        }
+        // const currentBankNiftyInstrumentsSymbol = Instruments.getCurrentInstrumentsSymbol(symbolTypes.BANKNIFTY);
+        const optionScriptTradingSymbols = [];
+        optionScriptService
+          .getOptionScriptByUserId(user.info._id)
+          .then(async (optionScripts) => {
+            if (optionScripts) {
+              optionScripts.forEach((optionScript) => {
+                if (_.isEqual(optionScript.name, symbolTypes.NIFTY)) {
+                  optionScriptTradingSymbols.push(`${optionScript.exchange}:${optionScript.tradingsymbol}`);
+                }
+              });
+            }
+            const tradingSymbols = optionScriptTradingSymbols.concat(['NSE:NIFTY+50']);
+            logger.info(`tradingSymbols :: ${tradingSymbols}`);
+            zerodhaService.getZerodhaData(tradingSymbols).then((zerodhaNiftyData) => {
+              if (zerodhaNiftyData && zerodhaNiftyData.data) {
+                const { data } = zerodhaNiftyData;
+                zerodhaService.runNearRangeBuyForToday(data, symbolTypes.NIFTY);
+              }
+            });
+          })
+          .catch((error) => {
+            logger.info(error);
+          });
+      }
+    } else if (_.isEqual(setting.tradingType, tradingTypes.NORMAL)) {
+      logger.info(`Trading Type :: ${setting.tradingType}`);
+    } else {
+      logger.info(`Trading Type :: ${setting.tradingType}`);
+    }
+
+    if (isMarketOpen()) {
+      // need to remove
+      const optionScriptTradingSymbols = [];
+      optionScriptService
+        .getOptionScriptByUserId(user.info._id)
+        .then(async (optionScripts) => {
+          if (optionScripts) {
+            optionScripts.forEach((optionScript) => {
+              if (_.isEqual(optionScript.name, symbolTypes.NIFTY)) {
+                optionScriptTradingSymbols.push(`${optionScript.exchange}:${optionScript.tradingsymbol}`);
+              }
+            });
+          }
+          zerodhaService.getZerodhaData(optionScriptTradingSymbols).then((zerodhaNiftyData) => {
+            if (zerodhaNiftyData && zerodhaNiftyData.data) {
+              const { data } = zerodhaNiftyData;
+              zerodhaService.runToBuyForToday(data, symbolTypes.NIFTY);
+              zerodhaService.runToSellForToday(data, symbolTypes.NIFTY);
+            }
+          });
+        })
+        .catch((error) => {
+          logger.info(error);
+        });
+    } else {
+      const optionScriptTradingSymbols = [];
+      optionScriptService
+        .getOptionScriptByUserId(user.info._id)
+        .then(async (optionScripts) => {
+          if (optionScripts) {
+            optionScripts.forEach((optionScript) => {
+              if (_.isEqual(optionScript.name, symbolTypes.NIFTY)) {
+                optionScriptTradingSymbols.push(`${optionScript.exchange}:${optionScript.tradingsymbol}`);
+              }
+            });
+          }
+          zerodhaService.getZerodhaData(optionScriptTradingSymbols).then((zerodhaNiftyData) => {
+            if (zerodhaNiftyData && zerodhaNiftyData.data) {
+              const { data } = zerodhaNiftyData;
+              zerodhaService.runToSellAllForToday(data, symbolTypes.NIFTY);
+            }
+          });
+        })
+        .catch((error) => {
+          logger.info(error);
+        });
+    }
+    // miscService.getOptionChainData(symbolTypes.NIFTY).then((nseOptionChainNiftyData) => {
+    //   // logger.info(`nseOptionChainNiftyData :${nseOptionChainNiftyData}`);
+    //   if (nseOptionChainNiftyData && nseOptionChainNiftyData.filtered && nseOptionChainNiftyData.filtered.data) {
+    //     symbolRateService.updateSymbolCurrentPrice(symbolTypes.NIFTY, true, nseOptionChainNiftyData);
+    //     const filteredOptionChainNiftyData = optionChainService.getFilterdOptionChainData(
+    //       nseOptionChainNiftyData.filtered.data
+    //     );
+    //     if (filteredOptionChainNiftyData) {
+    //       if (isCurrentTimeMatch(9, 20)) {
+    //         optionChainService.runPreStartForTodayScript(filteredOptionChainNiftyData, symbolTypes.NIFTY);
+    //       }
+    //       optionChainService.runBuyForTodayScript(filteredOptionChainNiftyData, symbolTypes.NIFTY);
+    //       optionChainService.runSellForTodayScript(filteredOptionChainNiftyData, symbolTypes.NIFTY);
+    //       if (isCurrentTimeMatch(3, 25)) {
+    //         optionChainService.runSellAllForTodayScript(filteredOptionChainNiftyData, symbolTypes.NIFTY);
+    //       }
+    //       // Initialization
+    //       if (isCurrentTimeMatch(9, 13)) {
+    //         expiryDateService.updateExpiryDatesForSymbol(symbolTypes.NIFTY, nseOptionChainNiftyData);
+    //         optionChainService.runNearRangeBuyForTodayScript(filteredOptionChainNiftyData, symbolTypes.NIFTY);
+    //       }
+    //     }
+    //   }
+    //   resolve({});
+    // });
+    resolve({});
   });
 
 const initBankNiftyOptionChain = () =>
@@ -93,15 +195,16 @@ const initBankNiftyOptionChain = () =>
     // Initialization
     if (_.isEqual(setting.tradingType, tradingTypes.NEAR_RANGE)) {
       logger.info(`Trading Type :: ${setting.tradingType}`);
-      if (!isMarketOpen()) { // need to remove
+      if (!isMarketOpen()) {
+        // need to remove
         logger.info(`Market open!`);
-        if (!isTradeConfigurationOpen()) { // need to remove
+        if (!isTradeConfigurationOpen()) {
+          // need to remove
           logger.info(`is Trade Configuration Open!`);
           miscService.getOptionChainData(symbolTypes.BANKNIFTY).then((nseOptionChainBankNiftyData) => {
             expiryDateService.updateExpiryDatesForSymbol(symbolTypes.BANKNIFTY, nseOptionChainBankNiftyData);
           });
         }
-
         // const currentBankNiftyInstrumentsSymbol = Instruments.getCurrentInstrumentsSymbol(symbolTypes.BANKNIFTY);
         const optionScriptTradingSymbols = [];
         optionScriptService
@@ -133,7 +236,8 @@ const initBankNiftyOptionChain = () =>
       logger.info(`Trading Type :: ${setting.tradingType}`);
     }
 
-    if (!isMarketOpen()) { // need to remove
+    if (!isMarketOpen()) {
+      // need to remove
       const optionScriptTradingSymbols = [];
       optionScriptService
         .getOptionScriptByUserId(user.info._id)
@@ -215,7 +319,7 @@ const start3SecCronTasks = () => {
     logger.info('----------------------------------');
     getCurrentDateTime();
     logger.info('running a task every 3 seconds');
-    Promise.all([initBankNiftyOptionChain()]) // initNiftyOptionChain(),
+    Promise.all([initBankNiftyOptionChain()]) // initNiftyOptionChain(), initBankNiftyOptionChain()
       .then(() => {
         // do something with the responses
         logger.info('OptionChain Executed for All users.');
@@ -228,7 +332,7 @@ const start3SecCronTasks = () => {
 };
 
 const start15MinutesCronTasks = () => {
-  cron.schedule('*/15 * * * *', () => {
+  cron.schedule('*/1 * * * *', () => {
     logger.info('running a task every 15 minute');
     herokuKeepAliveCall();
   });

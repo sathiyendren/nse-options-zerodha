@@ -4,6 +4,7 @@ const _ = require('lodash');
 const logger = require('../config/logger');
 const { zerodhaURLs } = require('../config/zerodha');
 const Zerodha = require('../brokers/zerodha/Zerodha');
+const ZerodhaOrderManager = require('../brokers/zerodha/ZerodhaOrderManager');
 const Instruments = require('../brokers/zerodha/Instruments');
 const { User } = require('../models/singleton');
 const { getOptionScriptByUserId, createOptionScript } = require('./optionScript.service');
@@ -19,6 +20,7 @@ const {
 
 const { OptionScript } = require('../models/index');
 const { optionTypes, symbolTypes } = require('../config/optionScript');
+const { accountTypes } = require('../config/setting');
 
 const getZerodhaData = (tradingSymbols) =>
   new Promise((resolve) => {
@@ -82,7 +84,6 @@ const addNearRangePreStartTransaction = (optionScript) =>
           currentPrice,
         };
         logger.info(` ${optionScript.name} -- BOUGHT SCRIPT!!!`);
-        // implement ALGOMOJO api buy
         createTransaction(buyTransaction)
           .then((transactionData) => {
             logger.info('buy Transaction');
@@ -193,10 +194,10 @@ const updateTransactionsforCheckAndBuy = (optionScript, symbolData, symbol) =>
           currentPrice,
           tradingSymbol,
         };
-        const ltLowestPrice = lastTransaction.lowestPrice;
+        const ltCurrentPrice = lastTransaction.currentPrice;
         const ltLotSizeSoldPrice = optionScript.lot_size;
-        const ltQuantitySoldPrice = Math.round(setting.capital / (ltLotSizeSoldPrice * ltLowestPrice)) * ltLotSizeSoldPrice;
-        const profitDifference = ltQuantitySoldPrice * (currentPrice - ltLowestPrice);
+        const ltQuantitySoldPrice = Math.round(setting.capital / (ltLotSizeSoldPrice * ltCurrentPrice)) * ltLotSizeSoldPrice;
+        const profitDifference = ltQuantitySoldPrice * (currentPrice - ltCurrentPrice);
         const firstBuyCusionCaptial = (setting.capital * setting.firstBuyConstant) / 100;
         const reBuyPrice = lastTransaction.soldPrice + setting.reBuyCusionConstant / ltLotSizeSoldPrice;
         logger.info('---');
@@ -211,10 +212,32 @@ const updateTransactionsforCheckAndBuy = (optionScript, symbolData, symbol) =>
         if (isBuyCondition) {
           logger.info(`${symbol} -- BOUGHT SCRIPT!!!`);
           // implement ALGOMOJO api buy
-          createTransaction(buyTransaction).then((transactionData) => {
-            logger.info('buy Transaction');
-            resolve({ transaction: transactionData, success: true });
-          });
+          if (_.isEqual(setting.account, accountTypes.REAL)) {
+            const orderDetails = {
+              exchange: 'NFO',
+              tradingSymbol: optionScript.tradingsymbol,
+              isBuy: true,
+              quantity,
+              product: 'MIS',
+              isMarketOrder: true,
+              price: 0,
+            };
+            try {
+              const orderResult = ZerodhaOrderManager.placeOrder(orderDetails);
+              createTransaction(buyTransaction).then((transactionData) => {
+                logger.info('buy Transaction');
+                resolve({ transaction: transactionData, success: true });
+              });
+            } catch (error) {
+              logger.info(error);
+              resolve(null);
+            }
+          } else {
+            createTransaction(buyTransaction).then((transactionData) => {
+              logger.info('buy Transaction');
+              resolve({ transaction: transactionData, success: true });
+            });
+          }
         }
       } else {
         logger.info('not buy transaction..');
@@ -276,14 +299,42 @@ const updateTransactionsforCheckAndSell = (transaction, symbolData, symbol) =>
     logger.info(`${symbol} -- SELL trailingSLCaptial :: ${trailingSLCaptial}`);
     logger.info(`${symbol} -- SELL profit :: ${profit}`);
     logger.info('---');
-    updateTransactionById(transactionId, transactionBody)
-      .then((updatedTransaction) => {
-        resolve(updatedTransaction);
-      })
-      .catch((error) => {
+    if (_.isEqual(setting.account, accountTypes.REAL)) {
+      const tradingSymbolWithouthExchange = tradingSymbol.split(':')[1];
+      const { quantity } = transaction;
+      const orderDetails = {
+        exchange: 'NFO',
+        tradingSymbol: tradingSymbolWithouthExchange,
+        isBuy: true,
+        quantity,
+        product: 'MIS',
+        isMarketOrder: true,
+        price: 0,
+      };
+      try {
+        const orderResult = ZerodhaOrderManager.placeOrder(orderDetails);
+        updateTransactionById(transactionId, transactionBody)
+          .then((updatedTransaction) => {
+            resolve(updatedTransaction);
+          })
+          .catch((error) => {
+            logger.info(error);
+            resolve(null);
+          });
+      } catch (error) {
         logger.info(error);
         resolve(null);
-      });
+      }
+    } else {
+      updateTransactionById(transactionId, transactionBody)
+        .then((updatedTransaction) => {
+          resolve(updatedTransaction);
+        })
+        .catch((error) => {
+          logger.info(error);
+          resolve(null);
+        });
+    }
   });
 
 const runToSellForToday = async (symbolData, symbol) => {
@@ -311,7 +362,9 @@ const runToSellForToday = async (symbolData, symbol) => {
 
 const updateTransactionsforSellPrice = (transaction, symbolData) =>
   new Promise((resolve) => {
+    const { setting } = User.getUser();
     const { tradingSymbol } = transaction;
+    const { quantity } = transaction;
     const transactionId = transaction._id;
     const data = symbolData[tradingSymbol];
     const currentPrice = data.last_price;
@@ -320,15 +373,43 @@ const updateTransactionsforSellPrice = (transaction, symbolData) =>
       active: false,
       profit,
       soldPrice: currentPrice,
+      currentPrice,
     };
-    updateTransactionById(transactionId, transactionBody)
-      .then((updatedTransaction) => {
-        resolve(updatedTransaction);
-      })
-      .catch((error) => {
+    if (_.isEqual(setting.account, accountTypes.REAL)) {
+      const tradingSymbolWithouthExchange = tradingSymbol.split(':')[1];
+      const orderDetails = {
+        exchange: 'NFO',
+        tradingSymbol: tradingSymbolWithouthExchange,
+        isBuy: true,
+        quantity,
+        product: 'MIS',
+        isMarketOrder: true,
+        price: 0,
+      };
+      try {
+        const orderResult = ZerodhaOrderManager.placeOrder(orderDetails);
+        updateTransactionById(transactionId, transactionBody)
+          .then((updatedTransaction) => {
+            resolve(updatedTransaction);
+          })
+          .catch((error) => {
+            logger.info(error);
+            resolve(null);
+          });
+      } catch (error) {
         logger.info(error);
         resolve(null);
-      });
+      }
+    } else {
+      updateTransactionById(transactionId, transactionBody)
+        .then((updatedTransaction) => {
+          resolve(updatedTransaction);
+        })
+        .catch((error) => {
+          logger.info(error);
+          resolve(null);
+        });
+    }
   });
 
 const runToSellAllForToday = async (symbolData, symbol) => {
