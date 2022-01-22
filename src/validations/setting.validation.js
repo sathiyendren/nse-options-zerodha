@@ -5,15 +5,21 @@ const { accountTypes, tradingTypes } = require('../config/setting');
 const createSetting = {
   body: Joi.object().keys({
     appName: Joi.string().required(),
-    algomojoApiKey: Joi.string().required(),
-    algomojoApiSecret: Joi.string().required(),
+    algomojoApiKey: Joi.string(),
+    algomojoApiSecret: Joi.string(),
     account: Joi.string().required().valid(accountTypes.PAPER, accountTypes.REAL),
     capital: Joi.number().required().default(100000),
     firstBuyConstant: Joi.number().required().default(2.5),
     reBuyConstant: Joi.number().required().default(1),
-    trailingSLConstant: Joi.number().required().default(5),
     reBuyCusionConstant: Joi.number().required().default(100),
-    tradingType: Joi.string().default(tradingTypes.NORMAL),
+    tradingType: Joi.string()
+      .default(tradingTypes.NORMAL)
+      .valid(tradingTypes.ANYTIME, tradingTypes.NEAR_RANGE, tradingTypes.NORMAL),
+    trailingSLConstant: Joi.number().required().default(5),
+    zerodhaAccessToken: Joi.string(),
+    zerodhaApiKey: Joi.string(),
+    zerodhaApiSecret: Joi.string(),
+    zerodhaRequestToken: Joi.string(),
     userId: Joi.string().required().custom(objectId),
   }),
 };
@@ -42,17 +48,21 @@ const updateSetting = {
   }),
   body: Joi.object()
     .keys({
-      userId: Joi.string().required().custom(objectId),
-      appName: Joi.string().required(),
-      algomojoApiKey: Joi.string().required(),
-      algomojoApiSecret: Joi.string().required(),
-      account: Joi.string().required().valid(accountTypes.PAPER, accountTypes.REAL),
-      capital: Joi.number().required().default(100000),
-      firstBuyConstant: Joi.number().required().default(2.5),
-      reBuyConstant: Joi.number().required().default(1),
-      trailingSLConstant: Joi.number().required().default(5),
-      reBuyCusionConstant: Joi.number().required().default(100),
-      tradingType: Joi.string().default(tradingTypes.NORMAL),
+      userId: Joi.string().custom(objectId),
+      appName: Joi.string(),
+      algomojoApiKey: Joi.string(),
+      algomojoApiSecret: Joi.string(),
+      account: Joi.string().valid(accountTypes.PAPER, accountTypes.REAL),
+      capital: Joi.number(),
+      firstBuyConstant: Joi.number(),
+      reBuyConstant: Joi.number(),
+      trailingSLConstant: Joi.number(),
+      reBuyCusionConstant: Joi.number(),
+      tradingType: Joi.string().valid(tradingTypes.ANYTIME, tradingTypes.NEAR_RANGE, tradingTypes.NORMAL),
+      zerodhaAccessToken: Joi.string().allow(''),
+      zerodhaApiKey: Joi.string(),
+      zerodhaApiSecret: Joi.string(),
+      zerodhaRequestToken: Joi.string(),
     })
     .min(1),
 };

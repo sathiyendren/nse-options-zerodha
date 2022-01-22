@@ -22,6 +22,11 @@ const { OptionScript } = require('../models/index');
 const { optionTypes, symbolTypes } = require('../config/optionScript');
 const { accountTypes } = require('../config/setting');
 
+const { apiConfig } = require('../config/zerodha');
+const { getUserByEmail } = require('./user.service');
+const { getSettingByUserId, updateSettingById } = require('./setting.service');
+const { createInstruments, deleteAllInstrument } = require('./instrument.service');
+
 const getZerodhaData = (tradingSymbols) =>
   new Promise((resolve) => {
     const apiKey = Zerodha.getAPIKey();
@@ -122,18 +127,18 @@ const runNearRangeBuyForToday = async (symbolData, symbol) => {
   const roundedSymbolPrice = Math.round(symbolCurrentPrice / 100) * 100;
 
   const atmStikePrice = roundedSymbolPrice;
-  const otmStikePrice = roundedSymbolPrice + 100;
-  const itmStikePrice = roundedSymbolPrice - 100;
+  // const otmStikePrice = roundedSymbolPrice + 100; // need to remove
+  // const itmStikePrice = roundedSymbolPrice - 100; // need to remove
 
   logger.info(`${symbol} atmStikePrice  : ${atmStikePrice}`);
-  logger.info(`${symbol} otmStikePrice  : ${otmStikePrice}`);
-  logger.info(`${symbol} itmStikePrice  : ${itmStikePrice}`);
+  // logger.info(`${symbol} otmStikePrice  : ${otmStikePrice}`); // need to remove
+  // logger.info(`${symbol} itmStikePrice  : ${itmStikePrice}`); // need to remove
 
   const { expiryDate } = User.getUser().setting;
   const instruments = Instruments.instruments.filter((instrument) => {
     const instrumentExpiryDate = moment(instrument.expiry).format('DD-MMM-YYYY');
     return (
-      (instrument.strike === atmStikePrice || instrument.strike === otmStikePrice || instrument.strike === itmStikePrice) &&
+      instrument.strike === atmStikePrice && // || instrument.strike === otmStikePrice || instrument.strike === itmStikePrice) && // need to remove
       symbol === instrument.name &&
       _.isEqual(expiryDate, instrumentExpiryDate)
     );
@@ -172,6 +177,9 @@ const updateTransactionsforCheckAndBuy = (optionScript, symbolData, symbol) =>
       const lastTransaction = lastTransactions[0];
       if (lastTransaction && !lastTransaction.active) {
         const currentPrice = symbolData.last_price;
+        const { ohlc } = symbolData;
+        const dayLowestPrice = ohlc.low;
+        const dayHighestPrice = ohlc.high;
         const lotSize = optionScript.lot_size;
         const quantity = Math.round(setting.capital / (lotSize * currentPrice)) * lotSize;
         const capital = currentPrice * quantity;
@@ -199,7 +207,14 @@ const updateTransactionsforCheckAndBuy = (optionScript, symbolData, symbol) =>
         const ltQuantitySoldPrice = Math.round(setting.capital / (ltLotSizeSoldPrice * ltCurrentPrice)) * ltLotSizeSoldPrice;
         const profitDifference = ltQuantitySoldPrice * (currentPrice - ltCurrentPrice);
         const firstBuyCusionCaptial = (setting.capital * setting.firstBuyConstant) / 100;
-        const reBuyPrice = lastTransaction.soldPrice + setting.reBuyCusionConstant / ltLotSizeSoldPrice;
+        const rebuyBuyCusionCaptial = (setting.capital * setting.reBuyConstant) / 100;
+        const reBuyPrice = lastTransaction.highestPrice;
+        // const reverseRebuyCusionCaptial = (setting.capital * 2.5) / 2 / 100;
+        // const reverseRebuyQuantitySoldPrice =
+        //   Math.round(setting.capital / (ltLotSizeSoldPrice * dayLowestPrice)) * ltLotSizeSoldPrice;
+        // const reverseRebuyProfitDifference = reverseRebuyQuantitySoldPrice * (currentPrice - ltCurrentPrice);
+        // const reverseRebuyPrice = dayLowestPrice + (dayHighestPrice - dayLowestPrice) * 0.25;
+        // const isreverseRebuyInRange = currentPrice < reverseRebuyPrice + 2 && currentPrice > reverseRebuyPrice - 2;
         logger.info('---');
         logger.info(`${symbol} --BUY :: ${tradingSymbol}`);
         logger.info(`${symbol} --BUY profitDifference :: ${profitDifference}`);
@@ -209,7 +224,8 @@ const updateTransactionsforCheckAndBuy = (optionScript, symbolData, symbol) =>
         logger.info('---');
         const isBuyCondition = lastTransaction.preStart
           ? profitDifference > firstBuyCusionCaptial
-          : currentPrice > reBuyPrice;
+          : currentPrice > reBuyPrice || profitDifference > rebuyBuyCusionCaptial; // || isreverseRebuyInRange;
+
         if (isBuyCondition) {
           logger.info(`${symbol} -- BOUGHT SCRIPT!!!`);
           // implement ALGOMOJO api buy
@@ -437,10 +453,102 @@ const runToSellAllForToday = async (symbolData, symbol) => {
   }
 };
 
+const refreshZerodhaConfig = () => {
+  const userEmail = apiConfig.email;
+  getUserByEmail(userEmail)
+    .then((user) => {
+      if (user.blacklisted) {
+        return;
+      }
+      User.setUserInfo(user);
+      getSettingByUserId(user._id)
+        .then((setting) => {
+          User.setUserSetting(setting);
+          logger.info(setting);
+          const kc = Zerodha.getKiteConnect();
+          if (_.isEmpty(setting.zerodhaAccessToken)) {
+            logger.info(`zerodhaRequestToken :: ${setting.zerodhaRequestToken}`);
+            Zerodha.login(setting.zerodhaRequestToken).then((data) => {
+              logger.info(data.success);
+              const isSuccessStatus = data.success;
+              const kcAccessToken = data.accessToken;
+              if (isSuccessStatus && kcAccessToken) {
+                const settingBody = {
+                  zerodhaAccessToken: kcAccessToken,
+                };
+                updateSettingById(setting._id, settingBody);
+                Zerodha.setAccessToken(kcAccessToken);
+                deleteAllInstrument()
+                  .then(() => {
+                    logger.info(`Deleted all instruments`);
+                    Zerodha.loadInstruments()
+                      .then((instruments) => {
+                        const currentExpiryDateInstruments = Instruments.getInstrumentsForExpiryDate(setting.expiryDate);
+                        Instruments.setCurrentInstruments(currentExpiryDateInstruments);
+                        logger.info(`currentExpiryDateInstruments count :: ${currentExpiryDateInstruments.length}`);
+                        createInstruments(currentExpiryDateInstruments)
+                          .then((docs) => {
+                            logger.info(`instruments count :: ${docs.length}`);
+                          })
+                          .catch((error) => {
+                            logger.info(error);
+                          });
+                      })
+                      .catch((error) => {
+                        logger.info(error);
+                      });
+                  })
+                  .catch((error) => {
+                    logger.info(error);
+                  });
+              }
+            });
+          } else {
+            const kcAccessToken = setting.zerodhaAccessToken;
+            logger.info(`zerodhaAccessToken :: ${kcAccessToken}`);
+            kc.setAccessToken(kcAccessToken);
+            Zerodha.setAccessToken(kcAccessToken);
+            deleteAllInstrument()
+              .then(() => {
+                logger.info(`Deleted all instruments`);
+                Zerodha.loadInstruments()
+                  .then((instruments) => {
+                    const currentExpiryDateInstruments = Instruments.getInstrumentsForExpiryDate(setting.expiryDate);
+                    Instruments.setCurrentInstruments(currentExpiryDateInstruments);
+                    logger.info(`currentExpiryDateInstruments count :: ${currentExpiryDateInstruments.length}`);
+                    createInstruments(currentExpiryDateInstruments)
+                      .then((docs) => {
+                        logger.info(`instruments count :: ${docs.length}`);
+                      })
+                      .catch((error) => {
+                        logger.info(error);
+                      });
+                  })
+                  .catch((error) => {
+                    logger.info(error);
+                  });
+              })
+              .catch((error) => {
+                logger.info(error);
+              });
+          }
+        })
+        .catch((error) => {
+          // handle error
+          logger.info(error);
+        });
+    })
+    .catch((error) => {
+      // handle error
+      logger.info(error);
+    });
+};
+
 module.exports = {
   getZerodhaData,
   runNearRangeBuyForToday,
   runToBuyForToday,
   runToSellForToday,
   runToSellAllForToday,
+  refreshZerodhaConfig,
 };

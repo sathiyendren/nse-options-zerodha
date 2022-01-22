@@ -20,8 +20,8 @@ router
 
 router
   .route('/user/:userId')
-  .get(auth('getSetting'), validate(settingValidation.getSetting), settingController.getSetting)
-  .patch(auth('manageSetting'), validate(settingValidation.updateSetting), settingController.updateSetting)
+  .get(validate(settingValidation.getSetting), settingController.getSetting)
+  .patch(validate(settingValidation.updateSetting), settingController.updateSetting)
   .delete(auth('manageSetting'), validate(settingValidation.deleteSetting), settingController.deleteSetting);
 
 module.exports = router;

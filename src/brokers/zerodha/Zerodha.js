@@ -88,27 +88,21 @@ class Zerodha {
             // });
           });
       } else {
-        logger.info(`login url => ${this.kiteConnect.getLoginURL()}`);
+        // eslint-disable-next-line no-undef
+        window.location = this.kiteConnect.getLoginURL();
         resolve({ success: false });
         // res.redirect(302, this.kiteConnect.getLoginURL());
       }
     });
   }
 
-  logout(req, res) {
-    if (!this.isLoggedIn()) {
-      return res.status(400).send({
-        error: 'Not logged in',
-      });
-    }
-
-    this.kiteConnect.invalidateAccessToken();
-    this.setSession(null);
-
-    res.status(200).send({
-      message: 'Logout successful',
+  logout() {
+    return new Promise((resolve) => {
+      this.kiteConnect.invalidateAccessToken();
+      this.setSession(null);
+      logger.info('Successfully logged out from the session');
+      resolve({ success: true });
     });
-    logger.info('Successfully logged out from the session');
   }
 
   loadInstruments() {

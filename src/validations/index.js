@@ -6,3 +6,4 @@ module.exports.settingValidation = require('./setting.validation');
 module.exports.optionChainValidation = require('./optionChain.validation');
 module.exports.transactionValidation = require('./transaction.validation');
 module.exports.symbolRateValidation = require('./symbolRate.validation');
+module.exports.zerodhaValidation = require('./zerodha.validation');

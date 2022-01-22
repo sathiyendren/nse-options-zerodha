@@ -29,7 +29,7 @@ const sessionHook = () => {
 const checkHealth = () =>
   new Promise((resolve) => {
     axios
-      .get('http://localhost:3002/v1/misc/ping')
+      .get('http://localhost:3000/v1/misc/ping')
       .then((response) => {
         const responseData = response.data;
         resolve(true);
@@ -51,14 +51,6 @@ const herokuKeepAliveCall = async () => {
 
 const initNiftyOptionChain = () =>
   new Promise((resolve) => {
-    zerodhaService.getZerodhaData(['NSE:NIFTY+50']).then((zerodhaNiftyData) => {
-      if (zerodhaNiftyData && zerodhaNiftyData.data) {
-        const data = zerodhaNiftyData.data['NSE:NIFTY 50'];
-        logger.info(`NSE:NIFTY 50  Price :: ${data.last_price}`);
-        symbolRateService.updateSymbolCurrentPrice(symbolTypes.NIFTY, true, data);
-      }
-    });
-
     const user = User.getUser();
     const { setting } = user;
     // Initialization
@@ -182,14 +174,6 @@ const initNiftyOptionChain = () =>
 
 const initBankNiftyOptionChain = () =>
   new Promise((resolve) => {
-    zerodhaService.getZerodhaData(['NSE:NIFTY+BANK']).then((zerodhaBankNiftyData) => {
-      if (zerodhaBankNiftyData && zerodhaBankNiftyData.data) {
-        const data = zerodhaBankNiftyData.data['NSE:NIFTY BANK'];
-        logger.info(`NSE:BANK_NIFTY  Price :: ${data.last_price}`);
-        symbolRateService.updateSymbolCurrentPrice(symbolTypes.BANKNIFTY, true, data);
-      }
-    });
-
     const user = User.getUser();
     const { setting } = user;
     // Initialization
@@ -319,7 +303,7 @@ const start3SecCronTasks = () => {
     logger.info('----------------------------------');
     getCurrentDateTime();
     logger.info('running a task every 3 seconds');
-    Promise.all([initNiftyOptionChain(), initBankNiftyOptionChain()]) // initNiftyOptionChain(), initBankNiftyOptionChain()
+    Promise.all([initBankNiftyOptionChain()]) // initNiftyOptionChain(), initBankNiftyOptionChain()
       .then(() => {
         // do something with the responses
         logger.info('OptionChain Executed for All users.');
@@ -338,8 +322,27 @@ const start15MinutesCronTasks = () => {
   });
 };
 
+const start1SecCronTasks = () => {
+  cron.schedule('*/1 * * * * *', () => {
+    logger.info('running a task every minute');
+    zerodhaService.getZerodhaData(['NSE:NIFTY+BANK', 'NSE:NIFTY+50']).then((zerodhaData) => {
+      if (zerodhaData && zerodhaData.data) {
+        const bankNiftyData = zerodhaData.data['NSE:NIFTY BANK'];
+        symbolRateService.updateSymbolCurrentPrice(symbolTypes.BANKNIFTY, true, bankNiftyData);
+
+        const niftyData = zerodhaData.data['NSE:NIFTY 50'];
+        symbolRateService.updateSymbolCurrentPrice(symbolTypes.NIFTY, true, niftyData);
+
+        logger.info('######################################################');
+        logger.info(`# NSE:BANK_NIFTY  Price :: ${bankNiftyData.last_price}`);
+        logger.info(`# NSE:NIFTY 50  Price :: ${niftyData.last_price}`);
+        logger.info('######################################################');
+      }
+    });
+  });
+};
+
 const startCronTasks = () => {
-  start15MinutesCronTasks();
   const userEmail = apiConfig.email;
   getUserByEmail(userEmail)
     .then((user) => {
@@ -374,6 +377,8 @@ const startCronTasks = () => {
                         Instruments.setCurrentInstruments(currentExpiryDateInstruments);
                         logger.info(`currentExpiryDateInstruments count :: ${currentExpiryDateInstruments.length}`);
                         start3SecCronTasks();
+                        start15MinutesCronTasks();
+                        start1SecCronTasks();
                         createInstruments(currentExpiryDateInstruments)
                           .then((docs) => {
                             logger.info(`instruments count :: ${docs.length}`);
@@ -405,6 +410,8 @@ const startCronTasks = () => {
                     Instruments.setCurrentInstruments(currentExpiryDateInstruments);
                     logger.info(`currentExpiryDateInstruments count :: ${currentExpiryDateInstruments.length}`);
                     start3SecCronTasks();
+                    start15MinutesCronTasks();
+                    start1SecCronTasks();
                     createInstruments(currentExpiryDateInstruments)
                       .then((docs) => {
                         logger.info(`instruments count :: ${docs.length}`);
