@@ -1,13 +1,20 @@
 const cron = require('node-cron');
 const axios = require('axios');
 const _ = require('lodash');
+const WebSocketServer = require('ws');
 const logger = require('../config/logger');
 const { apiConfig } = require('../config/zerodha');
 const Zerodha = require('../brokers/zerodha/Zerodha');
 const { getUserByEmail } = require('../services/user.service');
 const { getSettingByUserId } = require('../services/setting.service');
 const { createInstruments, deleteAllInstrument } = require('../services/instrument.service');
-const { isMarketOpen, isTradeConfigurationOpen, isCurrentTimeMatch, getCurrentDateTime } = require('../utils/utils');
+const {
+  isMarketOpen,
+  isTradeConfigurationOpen,
+  getNiftyFutureSymbol,
+  getBankNiftyFutureSymbol,
+  getCurrentDateTime,
+} = require('../utils/utils');
 const { User } = require('../models/singleton');
 const {
   symbolRateService,
@@ -21,7 +28,11 @@ const {
 const { symbolTypes } = require('../config/optionScript');
 const Instruments = require('../brokers/zerodha/Instruments');
 const { tradingTypes } = require('../config/setting');
+const config = require('../config/config');
 
+// Creating a new websocket server
+const wss = new WebSocketServer.Server({ port: config.wsport || 8080 });
+let ws = null;
 const sessionHook = () => {
   logger.info('User logged out!!!');
 };
@@ -78,7 +89,8 @@ const initNiftyOptionChain = () =>
                 }
               });
             }
-            const tradingSymbols = optionScriptTradingSymbols.concat(['NSE:NIFTY+50']);
+            const niftyFutureSymbol = getNiftyFutureSymbol();
+            const tradingSymbols = optionScriptTradingSymbols.concat([niftyFutureSymbol]);
             logger.info(`tradingSymbols :: ${tradingSymbols}`);
             zerodhaService.getZerodhaData(tradingSymbols).then((zerodhaNiftyData) => {
               if (zerodhaNiftyData && zerodhaNiftyData.data) {
@@ -113,6 +125,13 @@ const initNiftyOptionChain = () =>
           zerodhaService.getZerodhaData(optionScriptTradingSymbols).then((zerodhaNiftyData) => {
             if (zerodhaNiftyData && zerodhaNiftyData.data) {
               const { data } = zerodhaNiftyData;
+              if (ws) {
+                const dataMesage = {
+                  author: 'sathi',
+                  message: data,
+                };
+                ws.send(JSON.stringify(dataMesage));
+              }
               zerodhaService.runToBuyForToday(data, symbolTypes.NIFTY);
               zerodhaService.runToSellForToday(data, symbolTypes.NIFTY);
             }
@@ -201,7 +220,8 @@ const initBankNiftyOptionChain = () =>
                 }
               });
             }
-            const tradingSymbols = optionScriptTradingSymbols.concat(['NSE:NIFTY+BANK']);
+            const bankNiftyFutureSymbol = getBankNiftyFutureSymbol();
+            const tradingSymbols = optionScriptTradingSymbols.concat([bankNiftyFutureSymbol]);
             logger.info(`tradingSymbols :: ${tradingSymbols}`);
             zerodhaService.getZerodhaData(tradingSymbols).then((zerodhaBankNiftyData) => {
               if (zerodhaBankNiftyData && zerodhaBankNiftyData.data) {
@@ -223,19 +243,39 @@ const initBankNiftyOptionChain = () =>
     if (isMarketOpen()) {
       // need to remove
       const optionScriptTradingSymbols = [];
+      const currentExpiryDateInstruments = Instruments.getInstrumentsForExpiryDate(setting.expiryDate);
+      currentExpiryDateInstruments.forEach((currentExpiryDateInstrument) => {
+        optionScriptTradingSymbols.push(
+          `${currentExpiryDateInstrument.exchange}:${currentExpiryDateInstrument.tradingsymbol}`
+        );
+      });
+      logger.info(`instrument list ::`);
+      logger.info(`${optionScriptTradingSymbols}`);
+
       optionScriptService
         .getOptionScriptByUserId(user.info._id)
         .then(async (optionScripts) => {
-          if (optionScripts) {
-            optionScripts.forEach((optionScript) => {
-              if (_.isEqual(optionScript.name, symbolTypes.BANKNIFTY)) {
-                optionScriptTradingSymbols.push(`${optionScript.exchange}:${optionScript.tradingsymbol}`);
-              }
-            });
-          }
+          // if (optionScripts) {
+          //   optionScripts.forEach((optionScript) => {
+          //     if (_.isEqual(optionScript.name, symbolTypes.BANKNIFTY)) {
+          //       optionScriptTradingSymbols.push(`${optionScript.exchange}:${optionScript.tradingsymbol}`);
+          //     }
+          //   });
+          // }
           zerodhaService.getZerodhaData(optionScriptTradingSymbols).then((zerodhaBankNiftyData) => {
             if (zerodhaBankNiftyData && zerodhaBankNiftyData.data) {
               const { data } = zerodhaBankNiftyData;
+              const message = {
+                optionScripts,
+                data,
+              };
+              if (ws) {
+                const dataMesage = {
+                  author: 'sathi',
+                  message,
+                };
+                ws.send(JSON.stringify(dataMesage));
+              }
               zerodhaService.runToBuyForToday(data, symbolTypes.BANKNIFTY);
               zerodhaService.runToSellForToday(data, symbolTypes.BANKNIFTY);
             }
@@ -298,8 +338,8 @@ const initBankNiftyOptionChain = () =>
 /**
  * Starts All Cron Tasks
  */
-const start3SecCronTasks = () => {
-  cron.schedule('*/3 * * * * *', async () => {
+const start2SecCronTasks = () => {
+  cron.schedule('*/2 * * * * *', async () => {
     logger.info('----------------------------------');
     getCurrentDateTime();
     logger.info('running a task every 3 seconds');
@@ -325,17 +365,21 @@ const start15MinutesCronTasks = () => {
 const start1SecCronTasks = () => {
   cron.schedule('*/1 * * * * *', () => {
     logger.info('running a task every minute');
-    zerodhaService.getZerodhaData(['NSE:NIFTY+BANK', 'NSE:NIFTY+50']).then((zerodhaData) => {
+    const bankNiftyFutureSymbol = getBankNiftyFutureSymbol();
+    const niftyFutureSymbol = getNiftyFutureSymbol();
+    getNiftyFutureSymbol();
+    zerodhaService.getZerodhaData([bankNiftyFutureSymbol, niftyFutureSymbol]).then((zerodhaData) => {
       if (zerodhaData && zerodhaData.data) {
-        const bankNiftyData = zerodhaData.data['NSE:NIFTY BANK'];
+        logger.info(`---`);
+        const bankNiftyData = zerodhaData.data[bankNiftyFutureSymbol];
         symbolRateService.updateSymbolCurrentPrice(symbolTypes.BANKNIFTY, true, bankNiftyData);
 
-        const niftyData = zerodhaData.data['NSE:NIFTY 50'];
+        const niftyData = zerodhaData.data[niftyFutureSymbol];
         symbolRateService.updateSymbolCurrentPrice(symbolTypes.NIFTY, true, niftyData);
 
         logger.info('######################################################');
-        logger.info(`# NSE:BANK_NIFTY  Price :: ${bankNiftyData.last_price}`);
-        logger.info(`# NSE:NIFTY 50  Price :: ${niftyData.last_price}`);
+        logger.info(`# ${bankNiftyFutureSymbol}  Price :: ${bankNiftyData.last_price}`);
+        logger.info(`# ${niftyFutureSymbol}  Price :: ${niftyData.last_price}`);
         logger.info('######################################################');
       }
     });
@@ -376,7 +420,7 @@ const startCronTasks = () => {
                         const currentExpiryDateInstruments = Instruments.getInstrumentsForExpiryDate(setting.expiryDate);
                         Instruments.setCurrentInstruments(currentExpiryDateInstruments);
                         logger.info(`currentExpiryDateInstruments count :: ${currentExpiryDateInstruments.length}`);
-                        start3SecCronTasks();
+                        start2SecCronTasks();
                         start15MinutesCronTasks();
                         start1SecCronTasks();
                         createInstruments(currentExpiryDateInstruments)
@@ -409,7 +453,7 @@ const startCronTasks = () => {
                     const currentExpiryDateInstruments = Instruments.getInstrumentsForExpiryDate(setting.expiryDate);
                     Instruments.setCurrentInstruments(currentExpiryDateInstruments);
                     logger.info(`currentExpiryDateInstruments count :: ${currentExpiryDateInstruments.length}`);
-                    start3SecCronTasks();
+                    start2SecCronTasks();
                     start15MinutesCronTasks();
                     start1SecCronTasks();
                     createInstruments(currentExpiryDateInstruments)
@@ -439,6 +483,26 @@ const startCronTasks = () => {
       logger.info(error);
     });
 };
+
+// Creating connection using websocket
+wss.on('connection', (websocket) => {
+  ws = websocket;
+  logger.info('new client connected');
+  // sending message
+  websocket.on('message', (data) => {
+    logger.info(`Client has sent us: ${data}`);
+  });
+  // handling what to do when clients disconnects from server
+  websocket.on('close', () => {
+    logger.info('the client has connected');
+  });
+  // handling client connection error
+  // eslint-disable-next-line no-param-reassign
+  websocket.onerror = function () {
+    logger.info('Some Error occurred');
+  };
+});
+logger.info('The WebSocket server is running on port 8080');
 
 module.exports = {
   startCronTasks,

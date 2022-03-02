@@ -3,6 +3,7 @@
 */
 
 const _ = require('lodash');
+const moment = require('moment');
 const { holidays } = require('../config/zerodha');
 const logger = require('../config/logger');
 
@@ -139,7 +140,7 @@ const getTradeConfigurationEndTime = (date) => {
   }
 
   date.setHours(9);
-  date.setMinutes(16);
+  date.setMinutes(20);
   date.setSeconds(0);
   date.setMilliseconds(0);
 
@@ -179,7 +180,7 @@ const isMarketOpen = () => {
     return false;
   }
 
-  return now >= getMarketStartTime() && now <= getMarketEndTime();
+  return (now >= getMarketStartTime() && now <= getMarketEndTime());
 };
 
 const isTradeConfigurationOpen = () => {
@@ -189,7 +190,7 @@ const isTradeConfigurationOpen = () => {
     return false;
   }
 
-  return now >= getTradeConfigurationStartTime() && now <= getTradeConfigurationEndTime();
+  return (now >= getTradeConfigurationStartTime() && now <= getTradeConfigurationEndTime());
 };
 
 const isMarketClosedForTheDay = () => {
@@ -428,9 +429,23 @@ const getCurrentDateTime = () => {
   logger.info(`Current Time :: ${now.getHours()}:${now.getMinutes()}:${now.getSeconds()}`);
 };
 
+const getNiftyFutureSymbol = () => {
+  const year = moment(new Date()).format('YY');
+  const month = moment(new Date()).format('MMM').toUpperCase();
+  return `NFO:NIFTY${year}${month}FUT`;
+};
+
+const getBankNiftyFutureSymbol = () => {
+  const year = moment(new Date()).format('YY');
+  const month = moment(new Date()).format('MMM').toUpperCase();
+  return `NFO:BANKNIFTY${year}${month}FUT`;
+};
+
 module.exports = {
   isMarketOpen,
   isCurrentTimeMatch,
   getCurrentDateTime,
   isTradeConfigurationOpen,
+  getNiftyFutureSymbol,
+  getBankNiftyFutureSymbol,
 };

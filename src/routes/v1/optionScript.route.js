@@ -13,7 +13,7 @@ router
     validate(optionScriptValidation.createOptionScript),
     optionScriptController.createOptionScript
   )
-  .get(auth('getOptionScripts'), validate(optionScriptValidation.getOptionScripts), optionScriptController.getOptionScripts)
+  .get(validate(optionScriptValidation.getOptionScripts), optionScriptController.getOptionScripts)
   .delete(auth('manageOptionScripts'), optionScriptController.deleteAllOptionScript);
 
 router

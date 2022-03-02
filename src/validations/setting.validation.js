@@ -50,8 +50,8 @@ const updateSetting = {
     .keys({
       userId: Joi.string().custom(objectId),
       appName: Joi.string(),
-      algomojoApiKey: Joi.string(),
-      algomojoApiSecret: Joi.string(),
+      algomojoApiKey: Joi.string().allow(''),
+      algomojoApiSecret: Joi.string().allow(''),
       account: Joi.string().valid(accountTypes.PAPER, accountTypes.REAL),
       capital: Joi.number(),
       firstBuyConstant: Joi.number(),
@@ -60,9 +60,9 @@ const updateSetting = {
       reBuyCusionConstant: Joi.number(),
       tradingType: Joi.string().valid(tradingTypes.ANYTIME, tradingTypes.NEAR_RANGE, tradingTypes.NORMAL),
       zerodhaAccessToken: Joi.string().allow(''),
-      zerodhaApiKey: Joi.string(),
-      zerodhaApiSecret: Joi.string(),
-      zerodhaRequestToken: Joi.string(),
+      zerodhaApiKey: Joi.string().allow(''),
+      zerodhaApiSecret: Joi.string().allow(''),
+      zerodhaRequestToken: Joi.string().allow(''),
     })
     .min(1),
 };

@@ -26,6 +26,7 @@ const { apiConfig } = require('../config/zerodha');
 const { getUserByEmail } = require('./user.service');
 const { getSettingByUserId, updateSettingById } = require('./setting.service');
 const { createInstruments, deleteAllInstrument } = require('./instrument.service');
+const { getBankNiftyFutureSymbol, getNiftyFutureSymbol } = require('../utils/utils');
 
 const getZerodhaData = (tradingSymbols) =>
   new Promise((resolve) => {
@@ -122,7 +123,8 @@ const addInstrumentsToOptionScript = (instrument) =>
   });
 
 const runNearRangeBuyForToday = async (symbolData, symbol) => {
-  const currentSymbolData = symbolData[`NSE:${symbol === symbolTypes.BANKNIFTY ? 'NIFTY BANK' : 'NIFTY 50'}`];
+  const currentSymbolData =
+    symbolData[symbol === symbolTypes.BANKNIFTY ? getBankNiftyFutureSymbol() : getNiftyFutureSymbol()];
   const symbolCurrentPrice = currentSymbolData.last_price;
   const roundedSymbolPrice = Math.round(symbolCurrentPrice / 100) * 100;
 
@@ -544,6 +546,42 @@ const refreshZerodhaConfig = () => {
     });
 };
 
+const placeSingleOrder = (body) =>
+  new Promise((resolve) => {
+    const algomojoURL = `https://tcapi.algomojo.com/1.0/PlaceOrder`;
+    logger.info(`algomojoURL :${algomojoURL}`);
+    logger.info(`body :${JSON.stringify(body)}`);
+    axios
+      .post(algomojoURL, body)
+      .then((response) => {
+        logger.info(`response: ${JSON.stringify(response)}`);
+        const responseData = response.data;
+        resolve(responseData);
+      })
+      .catch((error) => {
+        logger.info(`Error: ${error.message}`);
+        resolve(null);
+      });
+  });
+
+const placeMultipleOrder = (body) =>
+  new Promise((resolve) => {
+    const algomojoURL = `https://tcapi.algomojo.com/1.0/PlaceMultiOrder`;
+    logger.info(`algomojoURL :${algomojoURL}`);
+    logger.info(`body :${JSON.stringify(body)}`);
+    axios
+      .post(algomojoURL, body)
+      .then((response) => {
+        logger.info(`response: ${JSON.stringify(response)}`);
+        const responseData = response.data;
+
+        resolve(responseData);
+      })
+      .catch((error) => {
+        logger.info(`Error: ${error.message}`);
+        resolve(null);
+      });
+  });
 module.exports = {
   getZerodhaData,
   runNearRangeBuyForToday,
@@ -551,4 +589,6 @@ module.exports = {
   runToSellForToday,
   runToSellAllForToday,
   refreshZerodhaConfig,
+  placeSingleOrder,
+  placeMultipleOrder,
 };
